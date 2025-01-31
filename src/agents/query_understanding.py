@@ -10,13 +10,31 @@ import os
 
 api_key = get_api_key()
 
+Domains = Literal[
+    "Where to go first",
+    "Shelter",
+    "Health & Wellbeing",
+    "Dentist",
+    "Safety & Protection",
+    "Food & Clothing",
+    "Work",
+    "Asylum & Return",
+    "Legal Advice",
+    "Search Missing Relatives",
+    "Women",
+    "Children & Youth",
+    "Courses & Activities",
+    "Feedback",
+    "Helpdesk & Social Support",
+]
+
 # Schemas for structured outputs
 class QueryAnalysis(BaseModel):
     """Analysis output from Query Understanding Agent"""
     query_type: Literal["clear", "needs_clarification", "emergency"] = Field(
         description="Whether the query is understood, needs clarification, or is an emergency"
     )
-    domain: Literal["health", "shelter", "food", "financial", "domestic violence", "other"] = Field(
+    domain: Domains = Field(
         description="Main domain of the query" # here some generic domain but once we know more we can add/refine
     )
     emotional_state: str = Field(
@@ -31,9 +49,14 @@ class QueryAnalysis(BaseModel):
     extracted_entities: dict = Field(
         description="Key entities from query (locations, dates, specific needs)"
     )
-    clarification_options: Optional[List[str]] = None
+    topics: List[str] = [
+
+    ]
+    clarification_options: Optional[List[str]] = [
     # here we can add some of the multi-choice questions to help the user express their need
     # I live that empty because this needs some brainstorming 🧠⛈️🌪️
+        "Can you confirm whether your question is related to any of the following: " 
+    ]
 
 
 class AgentState(TypedDict):

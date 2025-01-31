@@ -34,7 +34,7 @@ def build_agent_network():
 
     # Add edges
     workflow.add_edge(START, "query_understanding")
-    # Then other edges when new agents are done
+    workflow.add_edge("query_understanding", "rag")
 
     return workflow.compile()
 

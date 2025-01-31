@@ -1,3 +1,4 @@
+import typing
 from typing import Annotated, List, Optional, Literal
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
@@ -55,7 +56,7 @@ class QueryAnalysis(BaseModel):
     clarification_options: Optional[List[str]] = [
     # here we can add some of the multi-choice questions to help the user express their need
     # I live that empty because this needs some brainstorming 🧠⛈️🌪️
-        "Can you confirm whether your question is related to any of the following: " 
+        f"Can you confirm whether your question is related to any of the following: {typing.get_args(Domains)}" 
     ]
 
 

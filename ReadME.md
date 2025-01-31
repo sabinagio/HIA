@@ -1,5 +1,19 @@
 # Helpful Information as Aid - HFG7
 
+## Installation
+
+1. To use the `src` modules, make sure to run this command in your conda environment:
+```bash
+pip install -e .
+```
+
+2. To load and re-load `src` modules into Jupyter notebooks, use the following commands at the top of the notebook:
+```python
+%load_ext autoreload
+%autoreload 2
+```
+This will allow you to reload the Python scripts without restarting the Jupyter kernel.
+
 ## Agents
 
 ### Query Understanding Agent

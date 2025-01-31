@@ -53,12 +53,9 @@ class QueryAnalysis(BaseModel):
     topics: List[str] = [
 
     ]
-    clarification_options: Optional[List[str]] = [
+    clarification_options: Optional[List[str]] = typing.get_args(Domains)
     # here we can add some of the multi-choice questions to help the user express their need
     # I live that empty because this needs some brainstorming 🧠⛈️🌪️
-        f"Can you confirm whether your question is related to any of the following: {typing.get_args(Domains)}" 
-    ]
-
 
 class AgentState(TypedDict):
     """State for Query Understanding Agent"""

@@ -10,8 +10,6 @@ from rag import RAGState
 from langgraph.graph import StateGraph, END
 
 
-
-
 def response_quality_node(state: RAGState):
     """Evaluates the quality of the response and either shows it to the user or asks for further clarification."""
     # Extract info from RAGOutput

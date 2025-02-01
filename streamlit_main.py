@@ -1,3 +1,12 @@
+# Tutorial available on Streamlit:
+# https://docs.streamlit.io/develop/tutorials/llms/build-conversational-apps
+from dotenv import load_dotenv
+load_dotenv()
+
+from typing import List, Dict
+import os
+import streamlit as st
+
 from typing import Annotated, Optional
 from typing_extensions import TypedDict
 from pydantic import BaseModel
@@ -13,7 +22,7 @@ from src.agents import (
     response_quality
 )
 
-# limiter = Limiter(key_func=get_remote_address)
+st.title("Helpful Information as Aid")
 
 # Define overall graph state
 class ConversationState(TypedDict):
@@ -46,7 +55,8 @@ def build_conversation_graph():
     # Add simple routing nodes
     def await_clarification_node(state):
         """Returns clarification request with topic options"""
-        message = state["messages"][-1]["content"]
+        print("current state:", state)
+        message = state["messages"][-1].content
         return {
             "messages": [
                 {
@@ -117,16 +127,9 @@ def build_conversation_graph():
 
     return workflow.compile()
 
-
-# Initialize FastAPI app
-app = FastAPI()
-
-# Initialize conversation graph
-conversation_graph = build_conversation_graph()
-
-
 class ChatInput(BaseModel):
     message: str
+    history: List[Dict[str, str | None]] = None
     location: Optional[str] = None
     session_id: Optional[str] = None
 
@@ -135,14 +138,15 @@ class ChatResponse(BaseModel):
     response: str
 
 
-@app.post("/chat")
-# @limiter.limit("5/minute")  # Limit to 5 requests per minute per IP - for later
-async def chat(chat_input: ChatInput) -> ChatResponse:
+# Initialize conversation graph
+conversation_graph = build_conversation_graph()
+
+def chat(chat_input: ChatInput) -> ChatResponse:
     """Handle chat requests"""
 
     # Initialize state for this conversation turn
     initial_state = {
-        "messages": [],  # Conversation history
+        "messages": chat_input.history,  # Conversation history
         "query": chat_input.message,
         "location": chat_input.location,
         "analysis": None,  # For query understanding output
@@ -155,13 +159,15 @@ async def chat(chat_input: ChatInput) -> ChatResponse:
     try:
         # Process through agent graph
         result = conversation_graph.invoke(initial_state)
+        print("result", result)
 
         # Extract final response
         if "final_response" in result:
             response_text = result["final_response"]["text"]
         else:
             # Fallback to last message if no final_response
-            response_text = result["messages"][-1]["content"]
+            response_text = result["messages"][-1].content
+            print("response_text", response_text)
 
         return ChatResponse(response=response_text)
 
@@ -169,8 +175,29 @@ async def chat(chat_input: ChatInput) -> ChatResponse:
         print(f"Error processing request: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-if __name__ == "__main__":
-    import uvicorn
+location = st.text_input("Your location (optional):", key="location_input")
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+if prompt := st.chat_input("How can I help you today?"):
+
+    current_input = ChatInput(
+        message=prompt,
+        history=st.session_state.messages,
+        location=location if location else None
+    )
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    result = chat(chat_input=current_input)
+    st.session_state.messages.append({"role": "assistant", "content": result.response})
+
+# Function to display messages in the chat
+def display_chat_messages() -> None:
+    """Display the conversation history."""
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+# Display chat messages from history
+display_chat_messages()

@@ -134,7 +134,7 @@ def query_understanding_node(state: AgentState):
     elif structured_analysis.query_type == "emergency":
         # Route to emergency response
         return Command(
-            goto="emergency_response",
+            goto="emergency",
             update={
                 "messages": state["messages"],
                 "analysis": structured_analysis.model_dump()
@@ -142,35 +142,16 @@ def query_understanding_node(state: AgentState):
         )
 
     else:
-        # Query is clear - prepare outputs for Context Management and RAG agents
-        context_update = {
-            "user_context": {
-                "language": structured_analysis.language,
-                "emotional_state": structured_analysis.emotional_state,
-                "domain": structured_analysis.domain,
-                "location": state.get("location"),
-                "entities": structured_analysis.extracted_entities
+        return Command(
+            goto="rag",
+            update={
+                "analysis": structured_analysis.model_dump(),
+                "query_context": {
+                    "original_query": state["query"],
+                    "domains": structured_analysis.domains,
+                    "entities": structured_analysis.extracted_entities,
+                    "language": structured_analysis.language
+                }
             }
-        }
+        )
 
-        rag_update = {
-            "query_context": {
-                "original_query": state["query"],
-                "domain": structured_analysis.domain,
-                "entities": structured_analysis.extracted_entities,
-                "language": structured_analysis.language
-            }
-        }
-
-        # Return updates for both agents
-        # remove context management later - check if it's a good way to avoid hosting messages
-        return [
-            Command(
-                goto="context_management",
-                update=context_update
-            ),
-            Command(
-                goto="rag",
-                update=rag_update
-            )
-        ]

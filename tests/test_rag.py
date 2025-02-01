@@ -57,7 +57,7 @@ def test_rag_response_metadata_structure(base_state):
 
 def test_rag_handles_different_languages(base_state):
     # Modify query context to test different languages
-    base_state["query_context"].language = "dutch"
+    base_state["query_context"].language = "dutch" # languages tested: Dutch, Ukrainian, Syrian, Iranian
     result = rag_node(base_state)
     print(f"test_rag_handles_different_languages: {result}")
 

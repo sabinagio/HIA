@@ -20,7 +20,7 @@ class ConversationState(TypedDict):
     messages: Annotated[list, add_messages]  # Conversation history
     query: Optional[str] # Current user query
     location: Optional[str] # Optional location context
-    analysis: Optional[query_understanding.QueryAnalysis]
+    analysis: Optional[dict] # Optional[query_understanding.QueryAnalysis]
     # Analysis from query understanding, which has all the context we need
     # To keep consistency in conversation (language, emotional state, extracted_entities,
     # domains, query_type, etc.)

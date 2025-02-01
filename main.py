@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from typing_extensions import TypedDict
 from pydantic import BaseModel
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 # from slowapi import Limiter
 # from slowapi.util import get_remote_address
 from langgraph.graph import StateGraph, START, END
@@ -84,9 +84,9 @@ def build_conversation_graph():
         analysis = state["analysis"]
 
         # Route based on query type
-        if analysis.query_type == "clear":
+        if analysis["query_type"] == "clear":
             return "rag"
-        elif analysis.query_type == "emergency":
+        elif analysis["query_type"] == "emergency":
             return "emergency"
         else:
             return "await_clarification"
@@ -141,23 +141,33 @@ async def chat(chat_input: ChatInput) -> ChatResponse:
     """Handle chat requests"""
 
     # Initialize state for this conversation turn
-    state = {
-        "messages": [],  # if session_id provided can populate conversation history
+    initial_state = {
+        "messages": [],  # Conversation history
         "query": chat_input.message,
-        "location": chat_input.location
+        "location": chat_input.location,
+        "analysis": None,  # For query understanding output
+        "response": None,  # For RAG output
+        "quality_review": None  # For response quality output
     }
 
-    print(f"Initial state: {state}")
+    print(f"Initial state: {initial_state}")
 
-    # Process through agent graph
-    result = conversation_graph.invoke(state)
-    print(f"Result: {result}")
+    try:
+        # Process through agent graph
+        result = conversation_graph.invoke(initial_state)
 
-    # Extract assistant's response from final messages
-    assistant_response = result["messages"][-1]["content"]
-    print(f"Assistant response: {assistant_response}")
+        # Extract final response
+        if "final_response" in result:
+            response_text = result["final_response"]["text"]
+        else:
+            # Fallback to last message if no final_response
+            response_text = result["messages"][-1]["content"]
 
-    return ChatResponse(response=assistant_response)
+        return ChatResponse(response=response_text)
+
+    except Exception as e:
+        print(f"Error processing request: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

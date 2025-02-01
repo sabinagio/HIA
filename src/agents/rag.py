@@ -14,14 +14,16 @@ from langgraph.graph import StateGraph, START
 from langgraph.types import Command
 import json
 from src.utils.llm_utils import get_api_key
+import os
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 api_key = get_api_key()
 
 # Input/Output schemas
 class RAGInput(BaseModel):
     """Expected input from query understanding agent"""
     original_query: str = Field(description="Original user query")
-    domain: str = Field(description="Domain of the query (e.g., food, shelter)")
+    domains: List[str] = Field(description="List of domains relevant to the query (e.g., ['food', 'shelter'])")
     entities: Dict = Field(description="Extracted entities from query")
     language: str = Field(description="Language of the query")
 
@@ -48,6 +50,7 @@ class RAGOutput(BaseModel):
     text: str = Field(description="Generated response text")
     metadata: InformationMetadata = Field(description="Metadata about the information")
     relevant_chunks: List[str] = Field(description="Retrieved relevant text chunks")
+    domains_covered: List[str] = Field(description="List of domains for which information was found")
 
 
 class RAGState(TypedDict):
@@ -70,6 +73,9 @@ def initialize_vectorstore():
             embedding_function=embedding_functions.DefaultEmbeddingFunction()
         )
         print("Collection obtained.")
+
+        return collection
+
     except (ValueError, InvalidCollectionException):  # Collection doesn't exist
         collection = client.create_collection(
             name="test_collection",
@@ -77,106 +83,177 @@ def initialize_vectorstore():
         )
         print("Collection created.")
 
-    # For testing/development, create a simple vectorstore with some sample data
-    documents = [
-        "Food assistance is available at the Red Cross office on Mainstreet in Amsterdam. Open Monday-Friday 9-5.",
-        "Emergency shelter services can be accessed 24/7 at our downtown location in Amsterdam.",
-        "Financial aid applications are processed within 5-7 business days.",
-        "For immediate medical assistance, please call emergency services at 112.",
-    ]
+        # For testing/development, create a simple vectorstore with some sample data
+        documents = [
+            "Food assistance is available at the Red Cross office on Mainstreet in Amsterdam. Open Monday-Friday 9-5.",
+            "Emergency shelter services can be accessed 24/7 at our downtown location in Amsterdam.",
+            "Financial aid applications are processed within 5-7 business days.",
+            "For immediate medical assistance, please call emergency services at 112.",
+        ]
 
-    # Add metadata to each document
-    metadatas = [
-        {
-            "source": "RC Food Services Guide",
-            "last_updated": "2024-01-15",
-            "contact": json.dumps({"email": "food@redcross.org", "phone": "555-0123"}),
-            "domain": "food"
-        },
-        {
-            "source": "RC Shelter Guide",
-            "last_updated": "2024-01-20",
-            "contact": json.dumps({"phone": "555-0124"}),
-            "domain": "shelter"
-        },
-        {
-            "source": "RC Financial Aid Guide",
-            "last_updated": "2024-01-10",
-            "contact": json.dumps({"email": "finance@redcross.org"}),
-            "domain": "financial"
-        },
-        {
-            "source": "RC Emergency Guide",
-            "last_updated": "2024-01-01",
-            "contact": json.dumps({"phone": "112"}),
-            "domain": "health"
-        }
-    ]
+        # Add metadata to each document
+        metadatas = [
+            {
+                "source": "RC Food Services Guide",
+                "last_updated": "2024-01-15",
+                "contact": json.dumps({"email": "food@redcross.org", "phone": "555-0123"}),
+                "domain": "food"
+            },
+            {
+                "source": "RC Shelter Guide",
+                "last_updated": "2024-01-20",
+                "contact": json.dumps({"phone": "555-0124"}),
+                "domain": "shelter"
+            },
+            {
+                "source": "RC Financial Aid Guide",
+                "last_updated": "2024-01-10",
+                "contact": json.dumps({"email": "finance@redcross.org"}),
+                "domain": "financial"
+            },
+            {
+                "source": "RC Emergency Guide",
+                "last_updated": "2024-01-01",
+                "contact": json.dumps({"phone": "112"}),
+                "domain": "health"
+            }
+        ]
 
-    # Add documents to collection
-    collection.add(
-        documents=documents,
-        metadatas=metadatas,
-        ids=[f"doc_{i}" for i in range(len(documents))]
-    )
+        # Add documents to collection
+        collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=[f"doc_{i}" for i in range(len(documents))]
+        )
 
-    return collection
+        return collection
+
 
 def rag_node(state: RAGState):
     """
     RAG agent that retrieves relevant information and generates a response with metadata.
     """
     collection = initialize_vectorstore()
+    print("Initialized vectorstore")
     llm = ChatAnthropic(
         model="claude-3-5-sonnet-20241022",
         temperature=0
     )
 
-    # Get query context
     query_context = state["query_context"]
+    print(f"Obtained query context: {query_context}")
 
-    # Search collection with enhanced query
+    # Build enhanced query incorporating all domains
+    domains_str = ", ".join(query_context.domains)
     enhanced_query = f"""
-    Domain: {query_context.domain}
+    Domains: {domains_str}
     Query: {query_context.original_query}
     Entities: {query_context.entities}
     """
+    print("Defined enhanced query: {}".format(enhanced_query))
 
-    # Query collection
-    results = collection.query(
-        query_texts=[enhanced_query],
-        n_results=3,
-        where={"domain": query_context.domain} if query_context.domain != "other" else None,
-        include=["documents", "metadatas", "distances",]
-    )
+    # Define target number of results we want
+    target_results_per_domain = 3 # k in the search
+    total_target_results = len(query_context.domains) * target_results_per_domain
 
+    # Collect results for all domains
+    all_documents = []
+    all_metadatas = []
+    all_distances = []
+    domains_covered = set()
+
+    # Query for each domain
+    for domain in query_context.domains:
+        if domain.lower() != "other":
+            # Query with domain filter
+            results = collection.query(
+                query_texts=[enhanced_query],
+                n_results=target_results_per_domain,
+                where={"domain": domain.lower()},
+                include=["documents", "metadatas", "distances"]
+            )
+        else:
+            # For "Other", try to get more results since we're searching broadly
+            results = collection.query(
+                query_texts=[enhanced_query],
+                n_results=total_target_results,  # Try to get more results for general queries
+                include=["documents", "metadatas", "distances"]
+            )
+
+        if results['documents'][0]:  # If we got any results
+            all_documents.extend(results['documents'][0])
+            all_metadatas.extend(results['metadatas'][0])
+            all_distances.extend(results['distances'][0])
+            domains_covered.add(domain)
+
+    # Prepare consolidated results
     query_results = {
-        'documents': results['documents'][0],  # All documents for our query
-        'metadatas': results['metadatas'][0],  # All metadata for our query
-        'distances': results['distances'][0]  # All distances for our query
+        'documents': all_documents,
+        'metadatas': all_metadatas,
+        'distances': all_distances
     }
+    print(f"Consolidated query results: {query_results}")
 
-    # Now query_results contains all docs/metadata/distances for our single query
-    docs = query_results['documents']
-    metadatas = query_results['metadatas']
-    distances = query_results['distances']
+    # Don't calculate if no results
+    if not all_distances:
+        confidence_score = 0.0
+        completeness_score = 0.0
+    else:
+        # Normalize distances to [0, 1] range to avoid negative values
+        normalized_distances = [min(1.0, max(0.0, d)) for d in all_distances]
+        avg_distance = sum(normalized_distances) / len(normalized_distances)
+        confidence_score = max(0.0, min(1.0, 1.0 - avg_distance))
 
-    # Calculate confidence and completeness scores
-    avg_score = sum(distances) / len(distances) if distances else 0
-    confidence_score = min(1.0, avg_score / 0.8)  # Normalize to 0-1
-    completeness_score = min(1.0, len(docs) / 3)  # Based on getting 3 relevant results
+        # Calculate completeness based on number and relevance of results
+        if "Other" in query_context.domains:
+            # For "Other" queries, base completeness on how many relevant docs we found
+            # compared to what we asked for, and their average relevance
+            # (because otherwise topic is Other and completeness is 0.5)
+            results_ratio = len(all_documents) / total_target_results
+            relevance_weight = max(0.0, min(1.0, 1.0 - avg_distance))  # bound
+            completeness_score = max(0.0, min(1.0, results_ratio * relevance_weight))
+        else:
+            # For domain-specific queries, consider both domain coverage and documents retrieved
+            domain_coverage = len(domains_covered) / len(query_context.domains)
+            results_coverage = len(all_documents) / total_target_results
+            completeness_score = min(1.0, (domain_coverage + results_coverage) / 2)
 
     # Prepare document context for LLM
-    document_context = "\n".join(docs)
+    document_context = "\n".join(all_documents)
 
-    # Prepare query input context
+    # Ask LLM to assess the quality of the information completeness to get a more evolved score
+    completeness_prompt = f"""
+    Based on the following query and retrieved information, rate how complete and comprehensive 
+    the available information is on a scale from 0 to 1, where:
+    - 1.0 means all aspects of the query are fully addressed with detailed, relevant information
+    - 0.0 means no relevant information was found
+
+    Query: {query_context.original_query}
+
+    Retrieved Information:
+    {document_context}
+
+    Provide only a number between 0 and 1, no explanation.
+    """
+    # try - except in case the llm does not return a number
+    try:
+        llm_response = llm.invoke(completeness_prompt).content.strip()
+        llm_completeness = float(llm_response)
+        llm_completeness = max(0.0, min(1.0, llm_completeness)) # bound
+        final_completeness_score = max(0.0, min(1.0, (completeness_score + llm_completeness) / 2))
+    except (ValueError, Exception) as e:
+        print(f"LLM completeness error: {e}")
+        final_completeness_score = completeness_score
+
+
     context = f"""
     Retrieved information:
     {document_context}
 
     Additional context:
+    Domains: {domains_str}
     Location: {query_context.entities.get('location', 'Not specified')}
-    Other relevant information: {', '.join(f'{k}: {v}' for k, v in query_context.entities.items() if k != 'location')} # once we get to know the data we can improve this
+    Other relevant information: {', '.join(f'{k}: {v}' for k, v in query_context.entities.items() if k != 'location')}
     """
 
     system_prompt = f"""You are a helpful Red Cross assistant. Generate a response based on the retrieved information.
@@ -185,41 +262,174 @@ def rag_node(state: RAGState):
     Retrieved information:
     {context}
 
-    Important: Only include verifiable information from the sources. If information is incomplete,
-    acknowledge this and suggest contacting Red Cross directly for more details."""
+    Important: 
+    1. Address all requested domains: {domains_str}
+    2. Only include verifiable information from the sources
+    3. If information for any domain is incomplete, acknowledge this and suggest contacting Red Cross directly
+    4. Structure your response to clearly separate information for different domains"""
 
     response = llm.invoke([
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": query_context.original_query}
     ])
 
-
     # Get most recent metadata
-    latest_idx = max(range(len(metadatas)),
-                    key=lambda i: metadatas[i]["last_updated"])
-    latest_metadata = metadatas[latest_idx]
-    contact_info = json.loads(latest_metadata.get("contact_info", "{}"))  # load the contact json
+    latest_idx = max(range(len(all_metadatas)),
+                     key=lambda i: all_metadatas[i]["last_updated"])
+    latest_metadata = all_metadatas[latest_idx]
+    contact_info = json.loads(latest_metadata.get("contact", "{}"))
 
     # Prepare output
     output = RAGOutput(
         text=response.content,
         metadata=InformationMetadata(
-            source=", ".join(m["source"] for m in metadatas),
+            source=", ".join(set(m["source"] for m in all_metadatas)),
             last_updated=datetime.strptime(latest_metadata["last_updated"], "%Y-%m-%d"),
             contact_info=contact_info,
-            completeness_score=completeness_score,
+            completeness_score=final_completeness_score,
             confidence_score=confidence_score,
         ),
-        relevant_chunks=docs
+        relevant_chunks=all_documents,
+        domains_covered=list(domains_covered)
     )
+    print(f"Prepared output: {output}")
 
-    # Return update and route to response quality agent
     return Command(
         goto="response_quality",
         update={
             "response": output.model_dump()
         }
     )
+
+# def rag_node(state: RAGState):
+#     """
+#     RAG agent that retrieves relevant information and generates a response with metadata.
+#     """
+#     collection = initialize_vectorstore()
+#     print("Initialized vectorstore")
+#     llm = ChatAnthropic(
+#         model="claude-3-5-sonnet-20241022",
+#         temperature=0
+#     )
+#
+#     # Get query context
+#     query_context = state["query_context"]
+#     print(f"Obtained query context: {query_context}")
+#
+#     # Search collection with enhanced query
+#     domains_str = ", ".join(query_context.domains)
+#     enhanced_query = f"""
+#     Domains: {domains_str}
+#     Query: {query_context.original_query}
+#     Entities: {query_context.entities}
+#     """
+#     print("Defined enhanced query: {}".format(enhanced_query))
+#
+#     # Collecting results for each domain
+#     all_documents = []
+#     all_metadatas = []
+#     all_distances = []
+#     domains_covered = set()
+#
+#     # Query for each domain
+#     for domain in query_context.domains:
+#         if domain.lower() != "other":
+#             # Query with domain filter
+#             results = collection.query(
+#                 query_texts=[enhanced_query],
+#                 n_results=3,
+#                 where={"domain": domain.lower()},
+#                 include=["documents", "metadatas", "distances"]
+#             )
+#         else:
+#             # Query without domain filter for "Other"
+#             results = collection.query(
+#                 query_texts=[enhanced_query],
+#                 n_results=3,
+#                 include=["documents", "metadatas", "distances"]
+#             )
+#
+#         if results['documents'][0]:
+#             all_documents.extend(results['documents'][0])
+#             all_metadatas.extend(results['metadatas'][0])
+#             all_distances.extend(results['distances'][0])
+#             domains_covered.add(domain)
+#
+#     query_results = {
+#         'documents': all_documents,
+#         'metadatas': all_metadatas,
+#         'distances': all_distances
+#     }
+#     print(f"Consolidated query results: {query_results}")
+#
+#     # Calculate scores based on all documents for all topics
+#     avg_score = sum(all_distances) / len(all_distances) if all_distances else 0
+#     confidence_score = min(1.0, avg_score / 0.8)
+#     completeness_score = min(1.0, len(domains_covered) / len(query_context.domains))
+#
+#     # Prepare document context for LLM
+#     document_context = "\n".join(all_documents)
+#
+#     # Prepare query input context
+#     context = f"""
+#     Retrieved information:
+#     {document_context}
+#
+#     Additional context:
+#     Domains: {domains_str}
+#     Location: {query_context.entities.get('location', 'Not specified')}
+#     Other relevant information: {', '.join(f'{k}: {v}' for k, v in query_context.entities.items() if k != 'location')}
+#     """
+#
+#     system_prompt = f"""You are a helpful Red Cross assistant. Generate a response based on the retrieved information.
+#     Language to use: {query_context.language}
+#
+#     Retrieved information:
+#     {context}
+#
+#     Important:
+#     1. Address all requested domains: {domains_str}
+#     2. Only include verifiable information from the sources
+#     3. If information for any domain is incomplete, acknowledge this and suggest contacting Red Cross directly
+#     4. Structure your response to clearly separate information for different domains"""
+#
+#     response = llm.invoke([
+#         {"role": "system", "content": system_prompt},
+#         {"role": "user", "content": query_context.original_query}
+#     ])
+#     print(f"Obtained LLM response: {response}")
+#
+#     # Get most recent metadata
+#     latest_idx = max(range(len(all_metadatas)),
+#                      key=lambda i: all_metadatas[i]["last_updated"])
+#     latest_metadata = all_metadatas[latest_idx]
+#     contact_info = json.loads(latest_metadata.get("contact", "{}"))
+#     print(f"Latest metadata: {latest_metadata}")
+#     print("Obtained contact info: {}".format(contact_info))
+#
+#     # Prepare output
+#     output = RAGOutput(
+#         text=response.content,
+#         metadata=InformationMetadata(
+#             source=", ".join(m["source"] for m in all_metadatas),
+#             last_updated=datetime.strptime(latest_metadata["last_updated"], "%Y-%m-%d"),
+#             contact_info=contact_info,
+#             completeness_score=completeness_score,
+#             confidence_score=confidence_score,
+#         ),
+#         relevant_chunks=all_documents,
+#         domains_covered=list(domains_covered)
+#     )
+#     print(f"Prepared output:{output}")
+#
+#     # Return update and route to response quality agent
+#     return Command(
+#         goto="response_quality",
+#         update={
+#             "response": output.model_dump()
+#         }
+#     )
+
 
 
 # Create graph

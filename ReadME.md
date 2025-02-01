@@ -45,4 +45,5 @@ pytest tests/
 
 # start a specific test
 python -m pytest tests/test_query_understanding.py::test_clear_food_assistance_query -v
+python -m pytest tests/test_rage.py::test_rag_handles_different_languages -v
 ```

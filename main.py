@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, Annotated
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
+from langgraph.types import Command
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from src.agents import query_understanding, feedback, rag, emergency_response, context_management, response_quality
@@ -35,6 +36,21 @@ class AgentState(TypedDict):
 # Initialize memory saver
 memory = MemorySaver()
 
+def await_clarification_node(state: AgentState):
+    """No need for agent script, simply directs flow to END with clarification message"""
+    return Command(
+        goto=END,
+        update=state  # We want to keep the state for the conversation history
+    )
+    # how to return message?
+
+def emergency_node(state: AgentState):
+    """No need for agent script, simply answers with the whatsapp number = 112 for critical emergency"""
+    return Command(
+        goto=END,
+        update=state
+    )
+    # how to return message?
 
 # Build the agent network
 def build_agent_network():
@@ -42,6 +58,7 @@ def build_agent_network():
 
     # Add all agents
     workflow.add_node("query_understanding", query_understanding.query_understanding_node)
+    workflow.add_node("await_clarification", await_clarification_node)
     workflow.add_node("rag", rag.rag_node)
     workflow.add_node("response_quality", response_quality.response_quality_node)
 
@@ -49,9 +66,10 @@ def build_agent_network():
     workflow.add_edge(START, "query_understanding")
     workflow.add_conditional_edges(
         "query_understanding",
-        lambda state: "rag" if state.get("query_type") == "clear"
+        lambda state: "rag" if state.get("query_type") == "clear" # need to add query_type somewhere
         else "await_clarification",
     )
+    # add routing to emergency too
     workflow.add_edge("rag", "response_quality")
     workflow.add_edge("response_quality", END)
 
@@ -77,18 +95,16 @@ async def chat_endpoint(chat_input: ChatInput):
         result = agent_network.invoke(state)
         print(f"result: {result}")
 
-        # # Format response
-        # response = ChatResponse(
-        #     response=result["response"],
-        #     emergency=result.get("is_emergency", False),
-        #     needs_clarification=result.get("needs_clarification", False),
-        #     clarification_options=result.get("clarification_options", None)
-        # )
-        # print(f"response: {response}")
-        print(result)
+        # Format response
+        response = ChatResponse(
+            response=result["response"],
+            emergency=result.get("is_emergency", False),
+            needs_clarification=result.get("needs_clarification", False),
+            clarification_options=result.get("clarification_options", None)
+        )
+        print(f"response: {response}")
 
-        return result
-        # return response
+        return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

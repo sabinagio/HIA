@@ -17,6 +17,7 @@ def test_clear_food_assistance_query():
     )
 
     result = query_understanding_node(state)
+    print(result)
 
     # Since query is clear, we expect two Commands (for context and RAG)
     assert len(result) == 2
@@ -121,3 +122,4 @@ def test_emotional_distress_not_emergency():
         for key, value in entities.items()
     )
     assert has_children_mention, f"Should identify presence of children in entities. Got: {entities}"
+

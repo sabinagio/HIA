@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException
+from langchain.agents import Agent
 from pydantic import BaseModel
-from typing import Optional
-from langgraph.graph import StateGraph, START
+from typing import Optional, Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
 from src.agents import query_understanding, feedback, rag, emergency_response, context_management, response_quality
 
 app = FastAPI()
@@ -19,10 +22,22 @@ class ChatResponse(BaseModel):
     needs_clarification: bool = False
     clarification_options: Optional[list] = None
 
+# State schema which is the Base State
+class AgentState(TypedDict):
+    messages: Annotated[list, add_messages]
+    query: str
+    location: Optional[str]
+    session_id: Optional[str]
+    response: Optional[str]
+    is_emergency: bool
+    needs_clarification: bool
+    clarification_options: Optional[list]
+    # we can add more here when we discover more use cases information
+
 
 # Build the agent network
 def build_agent_network():
-    workflow = StateGraph()
+    workflow = StateGraph(AgentState)
 
     # Add all agents - to be defined after brainstorming
     workflow.add_node("query_understanding", query_understanding.query_understanding_node)
@@ -47,28 +62,32 @@ async def chat_endpoint(chat_input: ChatInput):
     try:
         # Initialize state
         state = {
-            "messages": [],
-            "query": chat_input.message,
-            "location": chat_input.location,
-            "session_id": chat_input.session_id
+            "messages": [], # Empty conversation history
+            "query": chat_input.message, # Original user input
+            "location": chat_input.location, # Initial location if provided
+            "session_id": chat_input.session_id, # To track the conversation
         }
+        print(f"state: {state}")
 
         # Process through agent network
         result = agent_network.invoke(state)
+        print(f"result: {result}")
 
-        # Format response
-        response = ChatResponse(
-            response=result["response"],
-            emergency=result.get("is_emergency", False),
-            needs_clarification=result.get("needs_clarification", False),
-            clarification_options=result.get("clarification_options")
-        )
+        # # Format response
+        # response = ChatResponse(
+        #     response=result["response"],
+        #     emergency=result.get("is_emergency", False),
+        #     needs_clarification=result.get("needs_clarification", False),
+        #     clarification_options=result.get("clarification_options", None)
+        # )
+        # print(f"response: {response}")
+        print(result)
 
-        return response
+        return result
+        # return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 if __name__ == "__main__":
     import uvicorn

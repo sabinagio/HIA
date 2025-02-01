@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
-from langchain.agents import Agent
 from pydantic import BaseModel
 from typing import Optional, Annotated
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
 from src.agents import query_understanding, feedback, rag, emergency_response, context_management, response_quality
 
 app = FastAPI()
@@ -24,32 +24,36 @@ class ChatResponse(BaseModel):
 
 # State schema which is the Base State
 class AgentState(TypedDict):
-    messages: Annotated[list, add_messages]
-    query: str
+    messages: Annotated[list, add_messages]  # Conversation history
+    query: str  # Current query
     location: Optional[str]
     session_id: Optional[str]
-    response: Optional[str]
-    is_emergency: bool
-    needs_clarification: bool
-    clarification_options: Optional[list]
-    # we can add more here when we discover more use cases information
+    current_response: Optional[str]
+    metadata: Optional[dict]  # Store metadata about current conversation
+    chat_active: bool  # Track if conversation is still active
+
+# Initialize memory saver
+memory = MemorySaver()
 
 
 # Build the agent network
 def build_agent_network():
     workflow = StateGraph(AgentState)
 
-    # Add all agents - to be defined after brainstorming
+    # Add all agents
     workflow.add_node("query_understanding", query_understanding.query_understanding_node)
-    # workflow.add_node("context_management", context_management.context_management_node)
     workflow.add_node("rag", rag.rag_node)
-    # workflow.add_node("emergency_response", emergency_response.emergency_response_node)
-    # workflow.add_node("response_quality", response_quality.response_quality_node)
-    # workflow.add_node("feedback", feedback.feedback_node)
+    workflow.add_node("response_quality", response_quality.response_quality_node)
 
-    # Add edges
+    # Define complete flow
     workflow.add_edge(START, "query_understanding")
-    workflow.add_edge("query_understanding", "rag")
+    workflow.add_conditional_edges(
+        "query_understanding",
+        lambda state: "rag" if state.get("query_type") == "clear"
+        else "await_clarification",
+    )
+    workflow.add_edge("rag", "response_quality")
+    workflow.add_edge("response_quality", END)
 
     return workflow.compile()
 

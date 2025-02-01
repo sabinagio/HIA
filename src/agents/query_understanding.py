@@ -1,6 +1,6 @@
 import typing
 from typing import Annotated, List, Optional, Literal
-from typing_extensions import TypedDict
+from typing_extensions import TypedDict, Union
 from pydantic import BaseModel, Field
 from langchain_anthropic import ChatAnthropic
 from langgraph.graph import StateGraph, START
@@ -29,14 +29,17 @@ Domains = Literal[
     "Helpdesk & Social Support",
 ]
 
+DomainWithOther = Union[Domains, Literal["Other"]]
+
 # Schemas for structured outputs
 class QueryAnalysis(BaseModel):
     """Analysis output from Query Understanding Agent"""
     query_type: Literal["clear", "needs_clarification", "emergency"] = Field(
         description="Whether the query is understood, needs clarification, or is an emergency"
     )
-    domain: Domains = Field(
-        description="Main domain of the query" # here some generic domain but once we know more we can add/refine
+    domains: List[DomainWithOther] = Field(
+        description="List of relevant domains for the query",
+        default_factory=list
     )
     emotional_state: str = Field(
         description="Detected emotional state of the user"
@@ -50,10 +53,11 @@ class QueryAnalysis(BaseModel):
     extracted_entities: dict = Field(
         description="Key entities from query (locations, dates, specific needs)"
     )
-    topics: List[str] = [
-
-    ]
-    clarification_options: Optional[List[str]] = typing.get_args(Domains)
+    topics: List[str] = []
+    clarification_options: List[str] = Field(
+        default_factory=lambda: list(typing.get_args(Domains))
+    )
+    print(f"clarification_options: {clarification_options}")
     # here we can add some of the multi-choice questions to help the user express their need
     # I live that empty because this needs some brainstorming 🧠⛈️🌪️
 
@@ -78,26 +82,29 @@ def query_understanding_node(state: AgentState):
         api_key=os.getenv("ANTHROPIC_API_KEY"),
     )
 
+    domain_list = "\n    - ".join(typing.get_args(Domains))
+
     system_prompt = """You are an expert query analyzer for a Red Cross virtual assistant.
     Analyze the query to understand the user's needs, emotional state, and language.
     Pay special attention to any signs of emergency or urgent needs.
 
     If you detect any of these, mark as EMERGENCY:
     - Immediate danger
-    - Medical emergencies
+    - Medical emergencies 
     - Severe distress
     - Threats to basic safety
 
-    If you cannot clearly understand the query, generate 2-3 clarifying options.
+    If the query is unclear, you should return relevant domains from this list as clarification options:
+    {}
 
     Important: You will analyze:
     1. Query clarity and type (clear/needs_clarification/emergency)
-    2. Domain of need
+    2. Domains of need, from this list of options {} or "Other"
     3. Emotional state from language and content
     4. Language of query
     5. Confidence in understanding
     6. Key entities (locations, dates, needs)
-    """
+    """.format(domain_list, domain_list)
 
     # Get structured analysis from LLM
     structured_analysis = llm.with_structured_output(QueryAnalysis).invoke(
@@ -110,13 +117,16 @@ def query_understanding_node(state: AgentState):
     print(structured_analysis)
 
     if structured_analysis.query_type == "needs_clarification":
-        # Create clarification message with options
+        # Filter clarification options to only include valid domains
+        structured_analysis.clarification_options = list(typing.get_args(Domains))
+        # Create clarification message with domain options
         options = "\n".join(f"- {opt}" for opt in structured_analysis.clarification_options)
         return Command(
             goto="await_clarification",
             update={
                 "messages": [
-                    {"role": "assistant", "content": f"To better help you, could you clarify if you mean:\n{options}"}],
+                    {"role": "assistant", "content": f"To better help you, please select the area(s) where you need assistance:\n{options}"}
+                ],
                 "analysis": structured_analysis.model_dump()
             }
         )

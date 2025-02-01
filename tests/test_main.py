@@ -1,23 +1,27 @@
 import requests
+import json
 
-def test_chat_endpoint():
+
+def test_chat():
     url = "http://127.0.0.1:8000/chat"
     input_query = {
         "message": "Where can I get food assistance for my family of 4?",
-        "location": "Amsterdam"  # Optional but helpful
+        "location": "Amsterdam"
     }
 
-    try:
-        response = requests.post(url, json=input_query)
-        response.raise_for_status()
-        print(f"Status Code: {response.status_code}")
-        print(f"Response: {response.json()}")
+    print("\n--- Sending Request ---")
+    print(f"URL: {url}")
+    print(f"Input: {json.dumps(input_query, indent=2)}")
 
-    except requests.exceptions.RequestException as e:
-        print(f"Error making request: {e}")
-        if hasattr(e.response, 'text'):
-            print(f"Response text: {e.response.text}")
+    response = requests.post(url, json=input_query)
+
+    print("\n--- Got Response ---")
+    print(f"Status: {response.status_code}")
+    print(f"Full Response: {response.text}")
+
+    if response.status_code != 200:
+        print(f"\nError Details: {response.text}")
 
 
 if __name__ == "__main__":
-    test_chat_endpoint()
+    test_chat()

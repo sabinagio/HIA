@@ -8,6 +8,10 @@ from langgraph.graph.message import add_messages
 from langgraph.types import Command
 from src.utils.llm_utils import get_api_key
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 api_key = get_api_key()
 
@@ -59,7 +63,7 @@ class QueryAnalysis(BaseModel):
     )
     print(f"clarification_options: {clarification_options}")
     # here we can add some of the multi-choice questions to help the user express their need
-    # I live that empty because this needs some brainstorming 🧠⛈️🌪️
+    # I leave that empty because this needs some brainstorming 🧠⛈️🌪️
 
 class AgentState(TypedDict):
     """State for Query Understanding Agent"""

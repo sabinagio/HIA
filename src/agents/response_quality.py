@@ -6,6 +6,10 @@ from langchain_anthropic import ChatAnthropic
 from src.agents.rag import InformationMetadata
 import json
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Configuration
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.7"))
@@ -29,9 +33,9 @@ class ResponseQualityInput(BaseModel):
 class ResponseQualityOutput(BaseModel):
     """Output from quality check"""
     text: str = Field(description="Final response text")
-    original_text: str = Field(description="Original response before modifications")
-    metadata: InformationMetadata = Field(description="Original metadata")
-    modifications_made: List[str] = Field(description="List of changes made to response", default_factory=list)
+    # original_text: str = Field(description="Original response before modifications")
+    # metadata: InformationMetadata = Field(description="Original metadata")
+    # modifications_made: List[str] = Field(description="List of changes made to response", default_factory=list)
 
 
 class ResponseQualityState(BaseModel):
@@ -116,9 +120,9 @@ def response_quality_node(state: dict) -> Command:
         # Prepare final output
         output = ResponseQualityOutput(
             text=response_text,
-            original_text=input_data.text,
-            metadata=input_data.metadata,
-            modifications_made=modifications
+            # original_text=input_data.text,
+            # metadata=input_data.metadata,
+            # modifications_made=modifications
         )
 
         # Return Command with state update
@@ -141,9 +145,9 @@ def response_quality_node(state: dict) -> Command:
 
         error_output = ResponseQualityOutput(
             text=f"{original_text}\n\nNote: Some of the information could not be completely verified. Please verify information with your local Red Cross office.",
-            original_text=original_text,
-            metadata=original_metadata,
-            modifications_made=["Added error caveat"]
+            # original_text=original_text,
+            # metadata=original_metadata,
+            # modifications_made=["Added error caveat"]
         )
 
         return Command(

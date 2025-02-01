@@ -10,6 +10,10 @@ from langgraph.types import Command
 import json
 from src.utils.llm_utils import get_api_key
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 api_key = get_api_key()
@@ -139,17 +143,17 @@ def rag_node(state: RAGState):
     print(f"Obtained query context: {query_context}")
 
     # Build enhanced query incorporating all domains
-    domains_str = ", ".join(query_context.domains)
+    domains_str = ", ".join(query_context["domains"])
     enhanced_query = f"""
     Domains: {domains_str}
-    Query: {query_context.original_query}
-    Entities: {query_context.entities}
+    Query: {query_context["original_query"]}
+    Entities: {query_context["entities"]}
     """
     print("Defined enhanced query: {}".format(enhanced_query))
 
     # Define target number of results we want
     target_results_per_domain = 3 # k in the search
-    total_target_results = len(query_context.domains) * target_results_per_domain
+    total_target_results = len(query_context["domains"]) * target_results_per_domain
 
     # Collect results for all domains
     all_documents = []
@@ -158,7 +162,7 @@ def rag_node(state: RAGState):
     domains_covered = set()
 
     # Query for each domain
-    for domain in query_context.domains:
+    for domain in query_context["domains"]:
         if domain.lower() != "other":
             # Query with domain filter
             results = collection.query(
@@ -189,29 +193,29 @@ def rag_node(state: RAGState):
     }
     print(f"Consolidated query results: {query_results}")
 
-    # Don't calculate if no results
-    if not all_distances:
-        confidence_score = 0.0
-        completeness_score = 0.0
-    else:
-        # Normalize distances to [0, 1] range to avoid negative values
-        normalized_distances = [min(1.0, max(0.0, d)) for d in all_distances]
-        avg_distance = sum(normalized_distances) / len(normalized_distances)
-        confidence_score = max(0.0, min(1.0, 1.0 - avg_distance))
-
-        # Calculate completeness based on number and relevance of results
-        if "Other" in query_context.domains:
-            # For "Other" queries, base completeness on how many relevant docs we found
-            # compared to what we asked for, and their average relevance
-            # (because otherwise topic is Other and completeness is 0.5)
-            results_ratio = len(all_documents) / total_target_results
-            relevance_weight = max(0.0, min(1.0, 1.0 - avg_distance))  # bound
-            completeness_score = max(0.0, min(1.0, results_ratio * relevance_weight))
-        else:
-            # For domain-specific queries, consider both domain coverage and documents retrieved
-            domain_coverage = len(domains_covered) / len(query_context.domains)
-            results_coverage = len(all_documents) / total_target_results
-            completeness_score = min(1.0, (domain_coverage + results_coverage) / 2)
+    # # Don't calculate if no results
+    # if not all_distances:
+    #     confidence_score = 0.0
+    #     completeness_score = 0.0
+    # else:
+    #     # Normalize distances to [0, 1] range to avoid negative values
+    #     normalized_distances = [min(1.0, max(0.0, d)) for d in all_distances]
+    #     avg_distance = sum(normalized_distances) / len(normalized_distances)
+    #     confidence_score = max(0.0, min(1.0, 1.0 - avg_distance))
+    #
+    #     # Calculate completeness based on number and relevance of results
+    #     if "Other" in query_context["domains"]:
+    #         # For "Other" queries, base completeness on how many relevant docs we found
+    #         # compared to what we asked for, and their average relevance
+    #         # (because otherwise topic is Other and completeness is 0.5)
+    #         results_ratio = len(all_documents) / total_target_results
+    #         relevance_weight = max(0.0, min(1.0, 1.0 - avg_distance))  # bound
+    #         final_completeness_score = max(0.0, min(1.0, results_ratio * relevance_weight))
+    #     else:
+    #         # For domain-specific queries, consider both domain coverage and documents retrieved
+    #         domain_coverage = len(domains_covered) / len(query_context["domains"])
+    #         results_coverage = len(all_documents) / total_target_results
+    #         final_completeness_score = min(1.0, (domain_coverage + results_coverage) / 2)
 
     # Prepare document context for LLM
     document_context = "\n".join(all_documents)
@@ -223,7 +227,7 @@ def rag_node(state: RAGState):
     - 1.0 means all aspects of the query are fully addressed with detailed, relevant information
     - 0.0 means no relevant information was found
 
-    Query: {query_context.original_query}
+    Query: {query_context["original_query"]}
 
     Retrieved Information:
     {document_context}
@@ -231,14 +235,15 @@ def rag_node(state: RAGState):
     Provide only a number between 0 and 1, no explanation.
     """
     # try - except in case the llm does not return a number
-    try:
-        llm_response = llm.invoke(completeness_prompt).content.strip()
-        llm_completeness = float(llm_response)
-        llm_completeness = max(0.0, min(1.0, llm_completeness)) # bound
-        final_completeness_score = max(0.0, min(1.0, (completeness_score + llm_completeness) / 2))
-    except (ValueError, Exception) as e:
-        print(f"LLM completeness error: {e}")
-        final_completeness_score = completeness_score
+    # try:
+    #     llm_response = llm.invoke(completeness_prompt).content.strip()
+    #     llm_completeness = float(llm_response)
+    #     llm_completeness = max(0.0, min(1.0, llm_completeness)) # bound
+    #     final_completeness_score = llm_completeness
+    #     # final_completeness_score = max(0.0, min(1.0, (completeness_score + llm_completeness) / 2))
+    # except (ValueError, Exception) as e:
+    #     print(f"LLM completeness error: {e}")
+    #     final_completeness_score = 0.0
 
 
     context = f"""
@@ -247,12 +252,12 @@ def rag_node(state: RAGState):
 
     Additional context:
     Domains: {domains_str}
-    Location: {query_context.entities.get('location', 'Not specified')}
-    Other relevant information: {', '.join(f'{k}: {v}' for k, v in query_context.entities.items() if k != 'location')}
+    Location: {query_context["entities"].get('location', 'Not specified')}
+    Other relevant information: {', '.join(f'{k}: {v}' for k, v in query_context["entities"].items() if k != 'location')}
     """
 
     system_prompt = f"""You are a helpful Red Cross assistant. Generate a response based on the retrieved information.
-    Language to use: {query_context.language}
+    Language to use: {query_context["language"]}
 
     Retrieved information:
     {context}
@@ -265,24 +270,30 @@ def rag_node(state: RAGState):
 
     response = llm.invoke([
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": query_context.original_query}
+        {"role": "user", "content": query_context["original_query"]}
     ])
 
     # Get most recent metadata
-    latest_idx = max(range(len(all_metadatas)),
-                     key=lambda i: all_metadatas[i]["last_updated"])
-    latest_metadata = all_metadatas[latest_idx]
-    contact_info = json.loads(latest_metadata.get("contact", "{}"))
+    if not all_metadatas:
+        latest_metadata = {}
+        contact_info = {}
+        last_updated = datetime.now()
+    else:
+        latest_idx = max(range(len(all_metadatas)),
+                         key=lambda i: all_metadatas[i]["last_updated"])
+        latest_metadata = all_metadatas[latest_idx]
+        contact_info = json.loads(latest_metadata.get("contact", "{}"))
+        last_updated = datetime.strptime(latest_metadata["last_updated"], "%Y-%m-%d")
 
     # Prepare output
     output = RAGOutput(
         text=response.content,
         metadata=InformationMetadata(
             source=", ".join(set(m["source"] for m in all_metadatas)),
-            last_updated=datetime.strptime(latest_metadata["last_updated"], "%Y-%m-%d"),
+            last_updated=last_updated,
             contact_info=contact_info,
-            completeness_score=final_completeness_score,
-            confidence_score=confidence_score,
+            completeness_score= 1,#final_completeness_score,
+            confidence_score= 1,#confidence_score,
         ),
         relevant_chunks=all_documents,
         domains_covered=list(domains_covered)

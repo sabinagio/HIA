@@ -91,7 +91,7 @@ def response_quality_node(state: Dict[Literal["initial_response"], dict]) -> Com
             system_prompt = f"""You are a response quality assistant for a Red Cross virtual assistant.
                 You need to check whether or not the assistant output follows the INCLUSIVE LANGUAGE GUIDELINE.
                 This means that you need to check if any 'Avoid' terms are present in the input you receive.
-                If no such terms are present, return the SAME INPUT YOU RECEIVED.
+                If you didn't find an 'Avoid' word, OUTPUT EXACTLY THE SAME TEXT YOU RECEIVED.
                 If you found 'Avoid' words, replace them with any one of the 'Preferred Terms' within the same paragraph.
 
                 INCLUSIVE LANGUAGE GUIDELINE:

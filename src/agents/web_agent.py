@@ -90,7 +90,7 @@ def prompt_search(query_context: dict) -> dict:
 
 def search_summary(query_context: dict, search_result: dict) -> dict:
 
-    system_prompt = """
+    summary_system_prompt = """
     You are a Red Cross assistant who helps people in need in the Netherlands.
     
     Information given:
@@ -101,30 +101,34 @@ def search_summary(query_context: dict, search_result: dict) -> dict:
     
     Based on that information, you need to summarise the search results to address
     the vulnerable person's immediate need.
-    Use kind and inclusive language, respecting the person's dignity.
+    Use kind and inclusive language, respecting the person's dignity while still being professional,
+    and don't call the user "friend"  or "brother/sister".
     Give an answer that is as clear and useful as possible, the vulnerable person
     is in a stressful situation and needs to be helped and reassured.
     Answer in the preferred language of the vulnerable person.
     Include links to the source articles in your answer to foster trust.
+    Don't provide statistics or non-practical information.
     """
 
-    llm_response = llm.invoke([
-        {"role": "system", "content": system_prompt},
+    llm_summary_response = llm.invoke([
+        {"role": "system", "content": summary_system_prompt},
         {"role": "user", "content": f"""
             Original query: {query_context['original_query']}
             Location: {query_context['entities'].get('location', 'Netherlands')}
             Domains: {query_context['domains']}
             Language: {query_context['language']}
+            Web Search Results: {search_result}
         """}
     ])
 
-    response = llm_response.content
+    summary_response = llm_summary_response.content
 
-    return {"web_agent_response": response}
+    return {"web_agent_response": summary_response}
 
 def web_agent(query_context: dict):
     search_result = prompt_search(query_context)
     web_agent_response = search_summary(query_context, search_result)
+    print(web_agent_response)
     return Command(
         goto="response_quality",
         update={
@@ -140,5 +144,4 @@ if __name__ == "__main__":
         "language": "english"
     }
 
-    json_output = web_agent(test_context)
-    print(json_output)
+    web_agent_output = web_agent(test_context)

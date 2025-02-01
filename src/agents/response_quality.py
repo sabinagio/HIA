@@ -90,15 +90,9 @@ def response_quality_node(state: Dict[Literal["initial_response"], dict]) -> Com
 
             system_prompt = f"""You are a response quality assistant for a Red Cross virtual assistant.
                 You need to check whether or not the assistant output follows the INCLUSIVE LANGUAGE GUIDELINE.
-                To do this, you need to see if any of the terms that need to be avoided are present and, if needed, replace them with one of the preferred terms provided for each category.
-                If no terms that need to be avoided are present in the text, you should output the assistant query as you received it.
-
-                ABOUT THE INCLUSIVE LANGUAGE GUIDELINE:
-                'Avoid' are words that should not be in your output and 'Preferred Terms' are the words you should use if you encounter
-                a word to be avoided. These are available for you in pairs, starting with the term to search for and Avoid, and ending
-                with the Preferred Terms that you need to replace. You should choose only one of the preferred terms depending on the context.
-                '.etc' denotes any other words that are similar to the ones previously written in the same enumeration. The 'Reasoning' is included
-                to help with distinguishing between instances where the avoided words might be used with a different meaning.
+                This means that you need to check if any 'Avoid' terms are present in the input you receive.
+                If no such terms are present, return the SAME INPUT YOU RECEIVED.
+                If you found 'Avoid' words, replace them with any one of the 'Preferred Terms' within the same paragraph.
 
                 INCLUSIVE LANGUAGE GUIDELINE:
                 {COMM_GUIDELINES}

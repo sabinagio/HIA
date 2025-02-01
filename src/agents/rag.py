@@ -1,16 +1,11 @@
 from typing import List, Dict, Optional
-
 from chromadb.errors import InvalidCollectionException
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from datetime import datetime
-# from langchain_community.vectorstores import Chroma
 import chromadb
 from chromadb.utils import embedding_functions
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
-# from langchain.text_splitter import RecursiveCharacterTextSplitter # for when we have actual data
 from langchain_anthropic import ChatAnthropic
-from langgraph.graph import StateGraph, START
 from langgraph.types import Command
 import json
 from src.utils.llm_utils import get_api_key
@@ -300,140 +295,3 @@ def rag_node(state: RAGState):
             "response": output.model_dump()
         }
     )
-
-# def rag_node(state: RAGState):
-#     """
-#     RAG agent that retrieves relevant information and generates a response with metadata.
-#     """
-#     collection = initialize_vectorstore()
-#     print("Initialized vectorstore")
-#     llm = ChatAnthropic(
-#         model="claude-3-5-sonnet-20241022",
-#         temperature=0
-#     )
-#
-#     # Get query context
-#     query_context = state["query_context"]
-#     print(f"Obtained query context: {query_context}")
-#
-#     # Search collection with enhanced query
-#     domains_str = ", ".join(query_context.domains)
-#     enhanced_query = f"""
-#     Domains: {domains_str}
-#     Query: {query_context.original_query}
-#     Entities: {query_context.entities}
-#     """
-#     print("Defined enhanced query: {}".format(enhanced_query))
-#
-#     # Collecting results for each domain
-#     all_documents = []
-#     all_metadatas = []
-#     all_distances = []
-#     domains_covered = set()
-#
-#     # Query for each domain
-#     for domain in query_context.domains:
-#         if domain.lower() != "other":
-#             # Query with domain filter
-#             results = collection.query(
-#                 query_texts=[enhanced_query],
-#                 n_results=3,
-#                 where={"domain": domain.lower()},
-#                 include=["documents", "metadatas", "distances"]
-#             )
-#         else:
-#             # Query without domain filter for "Other"
-#             results = collection.query(
-#                 query_texts=[enhanced_query],
-#                 n_results=3,
-#                 include=["documents", "metadatas", "distances"]
-#             )
-#
-#         if results['documents'][0]:
-#             all_documents.extend(results['documents'][0])
-#             all_metadatas.extend(results['metadatas'][0])
-#             all_distances.extend(results['distances'][0])
-#             domains_covered.add(domain)
-#
-#     query_results = {
-#         'documents': all_documents,
-#         'metadatas': all_metadatas,
-#         'distances': all_distances
-#     }
-#     print(f"Consolidated query results: {query_results}")
-#
-#     # Calculate scores based on all documents for all topics
-#     avg_score = sum(all_distances) / len(all_distances) if all_distances else 0
-#     confidence_score = min(1.0, avg_score / 0.8)
-#     completeness_score = min(1.0, len(domains_covered) / len(query_context.domains))
-#
-#     # Prepare document context for LLM
-#     document_context = "\n".join(all_documents)
-#
-#     # Prepare query input context
-#     context = f"""
-#     Retrieved information:
-#     {document_context}
-#
-#     Additional context:
-#     Domains: {domains_str}
-#     Location: {query_context.entities.get('location', 'Not specified')}
-#     Other relevant information: {', '.join(f'{k}: {v}' for k, v in query_context.entities.items() if k != 'location')}
-#     """
-#
-#     system_prompt = f"""You are a helpful Red Cross assistant. Generate a response based on the retrieved information.
-#     Language to use: {query_context.language}
-#
-#     Retrieved information:
-#     {context}
-#
-#     Important:
-#     1. Address all requested domains: {domains_str}
-#     2. Only include verifiable information from the sources
-#     3. If information for any domain is incomplete, acknowledge this and suggest contacting Red Cross directly
-#     4. Structure your response to clearly separate information for different domains"""
-#
-#     response = llm.invoke([
-#         {"role": "system", "content": system_prompt},
-#         {"role": "user", "content": query_context.original_query}
-#     ])
-#     print(f"Obtained LLM response: {response}")
-#
-#     # Get most recent metadata
-#     latest_idx = max(range(len(all_metadatas)),
-#                      key=lambda i: all_metadatas[i]["last_updated"])
-#     latest_metadata = all_metadatas[latest_idx]
-#     contact_info = json.loads(latest_metadata.get("contact", "{}"))
-#     print(f"Latest metadata: {latest_metadata}")
-#     print("Obtained contact info: {}".format(contact_info))
-#
-#     # Prepare output
-#     output = RAGOutput(
-#         text=response.content,
-#         metadata=InformationMetadata(
-#             source=", ".join(m["source"] for m in all_metadatas),
-#             last_updated=datetime.strptime(latest_metadata["last_updated"], "%Y-%m-%d"),
-#             contact_info=contact_info,
-#             completeness_score=completeness_score,
-#             confidence_score=confidence_score,
-#         ),
-#         relevant_chunks=all_documents,
-#         domains_covered=list(domains_covered)
-#     )
-#     print(f"Prepared output:{output}")
-#
-#     # Return update and route to response quality agent
-#     return Command(
-#         goto="response_quality",
-#         update={
-#             "response": output.model_dump()
-#         }
-#     )
-
-
-
-# Create graph
-workflow = StateGraph(RAGState)
-workflow.add_node("rag", rag_node)
-workflow.add_edge(START, "rag")
-graph = workflow.compile()

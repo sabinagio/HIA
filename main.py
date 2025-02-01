@@ -1,14 +1,128 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import Optional, Annotated
+from typing import Annotated, List, Optional
 from typing_extensions import TypedDict
+from pydantic import BaseModel
+from fastapi import FastAPI
+from fastapi import HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from langgraph.graph import StateGraph, START, END
-from langgraph.types import Command
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import MemorySaver
-from src.agents import query_understanding, feedback, rag, emergency_response, context_management, response_quality
 
+from src.agents import (
+    query_understanding,
+    rag,
+    response_quality
+)
+
+limiter = Limiter(key_func=get_remote_address)
+
+
+# Define overall graph state
+class ConversationState(TypedDict):
+    """State for the entire conversation graph"""
+    messages: Annotated[list, add_messages]  # Conversation history
+    query: str  # Current user query
+    location: Optional[str]  # Optional location context
+    analysis: Optional[query_understanding.QueryAnalysis]
+    # Analysis from query understanding, which has all the context we need
+    # To keep consistency in conversation (language, emotional state, extracted_entities,
+    # domains, query_type, etc.)
+    response: Optional[rag.RAGOutput]  # Response from RAG
+    quality_review: Optional[str]  # Quality review feedback
+
+
+def build_conversation_graph():
+    """Build the main conversation workflow graph"""
+
+    # Initialize graph with ConversationState
+    workflow = StateGraph(ConversationState)
+
+    # Add all agent nodes
+    workflow.add_node("query_understanding", query_understanding.query_understanding_node)
+    workflow.add_node("rag", rag.rag_node)
+    workflow.add_node("response_quality", response_quality.response_quality_node)
+
+    # Add simple routing nodes
+    def await_clarification_node(state):
+        """Returns clarification request with topic options"""
+        message = state["messages"][-1]["content"]
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": message  # Pass through clarification message
+                }
+            ]
+        }
+
+    def emergency_node(state):
+        """Returns emergency contact information"""
+        whatsapp_number = "environment variable very secret"
+        return {
+            "messages": [
+                {
+                    "role": "assistant",
+                    "content": f"""  
+                        This seems urgent and like you need immediate assistance. Please contact the Red Cross directly at this number {whatsapp_number}  
+                        to get help immediately.  
+                        For any medical emergency please contact 112.  
+                        """
+                }
+            ]
+        }
+
+    workflow.add_node("await_clarification", await_clarification_node)
+    workflow.add_node("emergency", emergency_node)
+
+    # Define routing logic which is all based on query understanding output
+    def route_by_query_type(state):
+        """
+        Routes to appropriate node based on query analysis
+        In query_understanding QueryAnalysis.query_type Literal["clear", "needs_clarification", "emergency"]
+        """
+        analysis = state["analysis"]
+
+        # Route based on query type
+        if analysis.query_type == "clear":
+            return "rag"
+        elif analysis.query_type == "emergency":
+            return "emergency"
+        else:
+            return "await_clarification"
+
+    # Add edges
+    workflow.add_edge(START, "query_understanding")
+
+    # Add conditional edges from query understanding
+    workflow.add_conditional_edges(
+        "query_understanding",
+        route_by_query_type,
+        {
+            "rag": "rag",
+            "emergency": "emergency",
+            "await_clarification": "await_clarification"
+        }
+    )
+
+    # Connect RAG to response quality - normal flow
+    workflow.add_edge("rag", "response_quality")
+
+    # Somewhere here would be the base agent
+
+    # All other nodes go to END - our multiple endings
+    workflow.add_edge("emergency", END)
+    workflow.add_edge("await_clarification", END)
+    workflow.add_edge("response_quality", END)
+
+    return workflow.compile()
+
+
+# Initialize FastAPI app
 app = FastAPI()
+
+# Initialize conversation graph
+conversation_graph = build_conversation_graph()
 
 
 class ChatInput(BaseModel):
@@ -19,95 +133,28 @@ class ChatInput(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-    emergency: bool = False
-    needs_clarification: bool = False
-    clarification_options: Optional[list] = None
-
-# State schema which is the Base State
-class AgentState(TypedDict):
-    messages: Annotated[list, add_messages]  # Conversation history
-    query: str  # Current query
-    location: Optional[str]
-    session_id: Optional[str]
-    current_response: Optional[str]
-    metadata: Optional[dict]  # Store metadata about current conversation
-    chat_active: bool  # Track if conversation is still active
-
-# Initialize memory saver
-memory = MemorySaver()
-
-def await_clarification_node(state: AgentState):
-    """No need for agent script, simply directs flow to END with clarification message"""
-    return Command(
-        goto=END,
-        update=state  # We want to keep the state for the conversation history
-    )
-    # how to return message?
-
-def emergency_node(state: AgentState):
-    """No need for agent script, simply answers with the whatsapp number = 112 for critical emergency"""
-    return Command(
-        goto=END,
-        update=state
-    )
-    # how to return message?
-
-# Build the agent network
-def build_agent_network():
-    workflow = StateGraph(AgentState)
-
-    # Add all agents
-    workflow.add_node("query_understanding", query_understanding.query_understanding_node)
-    workflow.add_node("await_clarification", await_clarification_node)
-    workflow.add_node("rag", rag.rag_node)
-    workflow.add_node("response_quality", response_quality.response_quality_node)
-
-    # Define complete flow
-    workflow.add_edge(START, "query_understanding")
-    workflow.add_conditional_edges(
-        "query_understanding",
-        lambda state: "rag" if state.get("query_type") == "clear" # need to add query_type somewhere
-        else "await_clarification",
-    )
-    # add routing to emergency too
-    workflow.add_edge("rag", "response_quality")
-    workflow.add_edge("response_quality", END)
-
-    return workflow.compile()
 
 
-agent_network = build_agent_network()
+@app.post("/chat")
+@limiter.limit("5/minute")  # Limit to 5 requests per minute per IP
+async def chat(chat_input: ChatInput) -> ChatResponse:
+    """Handle chat requests"""
 
+    # Initialize state for this conversation turn
+    state = {
+        "messages": [],  # if session_id provided can populate conversation history
+        "query": chat_input.message,
+        "location": chat_input.location
+    }
 
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(chat_input: ChatInput):
-    try:
-        # Initialize state
-        state = {
-            "messages": [], # Empty conversation history
-            "query": chat_input.message, # Original user input
-            "location": chat_input.location, # Initial location if provided
-            "session_id": chat_input.session_id, # To track the conversation
-        }
-        print(f"state: {state}")
+    # Process through agent graph
+    result = conversation_graph.invoke(state)
 
-        # Process through agent network
-        result = agent_network.invoke(state)
-        print(f"result: {result}")
+    # Extract assistant's response from final messages
+    assistant_response = result["messages"][-1]["content"]
 
-        # Format response
-        response = ChatResponse(
-            response=result["response"],
-            emergency=result.get("is_emergency", False),
-            needs_clarification=result.get("needs_clarification", False),
-            clarification_options=result.get("clarification_options", None)
-        )
-        print(f"response: {response}")
+    return ChatResponse(response=assistant_response)
 
-        return response
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

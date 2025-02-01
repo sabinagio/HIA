@@ -303,6 +303,6 @@ def rag_node(state: RAGState):
     return Command(
         goto="response_quality",
         update={
-            "response": output.model_dump()
+            "initial_response": output.model_dump()
         }
     )

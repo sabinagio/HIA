@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Literal
 from pydantic import BaseModel, Field
 from langgraph.graph import StateGraph, END, START
 from langgraph.types import Command
@@ -37,14 +37,13 @@ class ResponseQualityOutput(BaseModel):
     # metadata: InformationMetadata = Field(description="Original metadata")
     # modifications_made: List[str] = Field(description="List of changes made to response", default_factory=list)
 
-
 class ResponseQualityState(BaseModel):
     """State for Response Quality Agent"""
     initial_response: ResponseQualityInput
     final_response: Optional[ResponseQualityOutput] = None
 
 
-def response_quality_node(state: dict) -> Command:
+def response_quality_node(state: Dict[Literal["initial_response"], dict]) -> Command:
     """
     Evaluates response quality and returns improved version with quality context.
     Returns Command object with next node and state updates.

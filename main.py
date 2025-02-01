@@ -25,8 +25,8 @@ class ConversationState(TypedDict):
     # Analysis from query understanding, which has all the context we need
     # To keep consistency in conversation (language, emotional state, extracted_entities,
     # domains, query_type, etc.)
-    response: Optional[rag.RAGOutput]  # Response from RAG
-    quality_review: Optional[str]  # Quality review feedback
+    initial_response: Optional[rag.RAGOutput]  # Response from RAG
+    final_response: Optional[str]  # Quality review feedback
 
 
 def build_conversation_graph():
@@ -146,8 +146,8 @@ async def chat(chat_input: ChatInput) -> ChatResponse:
         "query": chat_input.message,
         "location": chat_input.location,
         "analysis": None,  # For query understanding output
-        "response": None,  # For RAG output
-        "quality_review": None  # For response quality output
+        "initial_response": None,  # For RAG output
+        "final_response": None  # For response quality output
     }
 
     print(f"Initial state: {initial_state}")
@@ -172,4 +172,5 @@ async def chat(chat_input: ChatInput) -> ChatResponse:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="debug")
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)

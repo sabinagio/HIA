@@ -76,57 +76,7 @@ def initialize_vectorstore():
         return collection
 
     except (ValueError, InvalidCollectionException):  # Collection doesn't exist
-        collection = client.create_collection(
-            name="test_collection",
-            embedding_function=embedding_functions.DefaultEmbeddingFunction()
-        )
-        print("Collection created.")
-
-        # For testing/development, create a simple vectorstore with some sample data
-        documents = [
-            "Food assistance is available at the Red Cross office on Mainstreet in Amsterdam. Open Monday-Friday 9-5.",
-            "Emergency shelter services can be accessed 24/7 at our downtown location in Amsterdam.",
-            "Financial aid applications are processed within 5-7 business days.",
-            "For immediate medical assistance, please call emergency services at 112.",
-        ]
-
-        # Add metadata to each document
-        metadatas = [
-            {
-                "source": "RC Food Services Guide",
-                "last_updated": "2024-01-15",
-                "contact": json.dumps({"email": "food@redcross.org", "phone": "555-0123"}),
-                "domain": "food"
-            },
-            {
-                "source": "RC Shelter Guide",
-                "last_updated": "2024-01-20",
-                "contact": json.dumps({"phone": "555-0124"}),
-                "domain": "shelter"
-            },
-            {
-                "source": "RC Financial Aid Guide",
-                "last_updated": "2024-01-10",
-                "contact": json.dumps({"email": "finance@redcross.org"}),
-                "domain": "financial"
-            },
-            {
-                "source": "RC Emergency Guide",
-                "last_updated": "2024-01-01",
-                "contact": json.dumps({"phone": "112"}),
-                "domain": "health"
-            }
-        ]
-
-        # Add documents to collection
-        collection.add(
-            documents=documents,
-            metadatas=metadatas,
-            ids=[f"doc_{i}" for i in range(len(documents))]
-        )
-
-        return collection
-
+        raise ValueError("Collection doesn't exist")
 
 def rag_node(state: RAGState):
     """

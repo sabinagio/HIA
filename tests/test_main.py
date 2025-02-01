@@ -6,4 +6,4 @@ input_query = {
 }
 
 response = requests.post(url, json=input_query)
-print(response.json())
+print(response)

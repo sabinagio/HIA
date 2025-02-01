@@ -163,6 +163,7 @@ def query_understanding_node(state: AgentState):
         }
 
         # Return updates for both agents
+        # remove context management later - check if it's a good way to avoid hosting messages
         return [
             Command(
                 goto="context_management",
@@ -173,14 +174,3 @@ def query_understanding_node(state: AgentState):
                 update=rag_update
             )
         ]
-
-
-# Build graph
-workflow = StateGraph(AgentState)
-
-# Add nodes
-workflow.add_node("query_understanding", query_understanding_node)
-workflow.add_edge(START, "query_understanding")
-
-# Compile
-graph = workflow.compile()

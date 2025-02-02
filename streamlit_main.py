@@ -140,8 +140,8 @@ def build_conversation_graph():
     )
 
     # Connect RAG to response quality - normal flow
-    workflow.add_edge("rag", "response_quality")
-    workflow.add_edge("web_agent", "response_quality")
+    # workflow.add_edge("rag", "response_quality")
+    # workflow.add_edge("web_agent", "response_quality")
 
     # Somewhere here would be the base agent
 
@@ -188,7 +188,11 @@ def chat(chat_input: ChatInput) -> ChatResponse:
 
         # Extract final response
         if "final_response" in result:
-            response_text = result["final_response"]["text"]
+            if result['final_response']:
+                response_text = result["final_response"]["text"]
+            else:
+                # For emergency/clarification flows
+                response_text = result["messages"][-1].content
         else:
             # Fallback to last message if no final_response
             response_text = result["messages"][-1].content

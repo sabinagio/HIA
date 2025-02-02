@@ -15,10 +15,10 @@ Let me show you how HIA works through a real example. Meet Olena from Ukraine. W
 
 But HIA doesn't stop at medical emergencies. Whether it's Maria needing food assistance, Ahmed looking for winter shelter, or Sarah seeking safety from the hands of abuse - HIA provides immediate, actionable help.
 
-What makes her special?
+### What makes her special?
 First off, she speaks multiple languages, which helps her connect with people in need - and she also understands context and sensitive situations. She is able to sense when someone is dealing with an emergency and is able to provide instant access to the most appropriate resource. She also provides verified and up-to-date information using Red Cross verified resources, so people do not waste their time seeking support when offices are closed.
 
-How does she do that?
+### How does she do that?
 We've built HIA by blending the expertise of all four of us and whilst she's not yet perfect, she does already:
 * use the Red Cross database to extract and provide information
 * she searches through verified websites to find more up-to-date information when her internal database is lacking

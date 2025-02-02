@@ -208,12 +208,12 @@ location = st.text_input("Your location (optional):", key="location_input")
 
 if prompt := st.chat_input("How can I help you today?"):
 
-    st.session_state.messages.append({"role": "user", "content": prompt})
     current_input = ChatInput(
-        message=st.session_state.messages,
+        message=prompt,
         history=st.session_state.messages,
         location=location if location else None
     )
+    st.session_state.messages.append({"role": "user", "content": prompt})
     result = chat(chat_input=current_input)
     st.session_state.messages.append({"role": "assistant", "content": result.response})
 

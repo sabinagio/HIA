@@ -50,6 +50,7 @@ class RAGOutput(BaseModel):
     metadata: InformationMetadata = Field(description="Metadata about the information")
     relevant_chunks: List[str] = Field(description="Retrieved relevant text chunks")
     domains_covered: List[str] = Field(description="List of domains for which information was found")
+    # query_context: Optional[RAGInput]
 
 
 class RAGState(TypedDict):
@@ -212,11 +213,13 @@ def rag_node(state: RAGState):
     Retrieved information:
     {context}
 
-    Important: 
+    Important:  
     1. Address all requested domains: {domains_str}
-    2. Only include verifiable information from the sources
-    3. If information for any domain is incomplete, acknowledge this and suggest contacting Red Cross directly
-    4. Structure your response to clearly separate information for different domains"""
+    2. Make the answer easy to read and keep it to 200 words maximum
+    3. Only include verifiable information from the sources
+    4. If information for any domain is incomplete, acknowledge this and suggest contacting Red Cross directly
+    5. Structure your response to clearly separate information for different domains
+    6. Give the answer in the same language you received it in"""
 
     response = llm.invoke([
         {"role": "system", "content": system_prompt},
@@ -246,13 +249,23 @@ def rag_node(state: RAGState):
             confidence_score= 1,#confidence_score,
         ),
         relevant_chunks=all_documents,
-        domains_covered=list(domains_covered)
+        domains_covered=list(domains_covered),
     )
-    print(f"Prepared output: {output}")
+    print(f"Prepared output: {output.model_dump()}")
 
-    return Command(
-        goto="response_quality",
-        update={
-            "initial_response": output.model_dump()
-        }
-    )
+    if len(output.relevant_chunks) > 0:
+        return Command(
+            goto="response_quality",
+            update={
+                "initial_response": output.model_dump(),
+                "query_context": None,
+            }
+        )
+    else:
+        return Command(
+            goto="web_agent",
+            update={
+                "initial_response": output.model_dump(),
+                "query_context": query_context
+            }
+        )

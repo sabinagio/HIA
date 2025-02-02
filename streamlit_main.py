@@ -19,7 +19,8 @@ from langgraph.graph.message import add_messages
 from src.agents import (
     query_understanding,
     rag,
-    response_quality
+    response_quality,
+    web_agent
 )
 
 st.title("Helpful Information as Aid")
@@ -34,7 +35,8 @@ class ConversationState(TypedDict):
     # Analysis from query understanding, which has all the context we need
     # To keep consistency in conversation (language, emotional state, extracted_entities,
     # domains, query_type, etc.)
-    initial_response: Optional[rag.RAGOutput]  # Response from RAG
+    initial_response: Optional[dict]  # Response from RAG
+    query_context: Optional[dict]
     final_response: Optional[str]  # Quality review feedback
 
 
@@ -50,6 +52,7 @@ def build_conversation_graph():
     # Add all agent nodes
     workflow.add_node("query_understanding", query_understanding.query_understanding_node)
     workflow.add_node("rag", rag.rag_node)
+    workflow.add_node("web_agent", web_agent.web_agent_node)
     workflow.add_node("response_quality", response_quality.response_quality_node)
 
     # Add simple routing nodes
@@ -100,6 +103,18 @@ def build_conversation_graph():
             return "emergency"
         else:
             return "await_clarification"
+        
+    def route_by_relevant_chunks(state):
+        """
+        Routes to appropriate node based on whether there was any relevant search result from the rag
+        In rag RAGOutput.relevant_chunks List[str]
+        """
+        context = state.get("query_context")  # No fallback value here
+
+        if context:
+            return "web_agent"
+        else:
+            return "response_quality"
 
     # Add edges
     workflow.add_edge(START, "query_understanding")
@@ -114,9 +129,18 @@ def build_conversation_graph():
             "await_clarification": "await_clarification"
         }
     )
+    workflow.add_conditional_edges(
+        "rag",
+        route_by_relevant_chunks,
+        {
+            "response_quality": "response_quality",
+            "web_agent": "web_agent"
+        }
+    )
 
     # Connect RAG to response quality - normal flow
     workflow.add_edge("rag", "response_quality")
+    workflow.add_edge("web_agent", "response_quality")
 
     # Somewhere here would be the base agent
 
@@ -136,7 +160,6 @@ class ChatInput(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
-
 
 # Initialize conversation graph
 conversation_graph = build_conversation_graph()
@@ -173,7 +196,7 @@ def chat(chat_input: ChatInput) -> ChatResponse:
 
     except Exception as e:
         print(f"Error processing request: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=repr(e))
 
 if "messages" not in st.session_state:
     st.session_state.messages = []

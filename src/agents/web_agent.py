@@ -184,7 +184,8 @@ def search_summary(query_context: dict, search_result: dict) -> dict:
 
     return {"web_agent_response": summary_response}
 
-def web_agent_node(query_context: dict):
+def web_agent_node(state: dict):
+    query_context = state.get("query_context")
     search_result = prompt_search(query_context)
     web_agent_response = search_summary(query_context, search_result)
     print(web_agent_response)

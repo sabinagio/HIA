@@ -13,7 +13,7 @@ def initialize_vectorstore():
     # Initialize persistent Chroma client
     client = chromadb.PersistentClient(path="./chroma_db")
 
-    # client.delete_collection("test_collection")
+    client.delete_collection("test_collection")
 
     # Create or get existing collection
     try:

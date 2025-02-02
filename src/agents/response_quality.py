@@ -43,38 +43,41 @@ class ResponseQualityState(BaseModel):
     final_response: Optional[ResponseQualityOutput] = None
 
 
-def response_quality_node(state: Dict[Literal["initial_response"], dict]) -> Command:
+def response_quality_node(state: dict) -> Command:
     """
     Evaluates response quality and returns improved version with quality context.
     Returns Command object with next node and state updates.
     """
     try:
-        if "initial_response" not in state:
-            raise ValueError("No initial response in state")
+        if "initial_response" in state:
 
-        input_data = ResponseQualityInput(**state["initial_response"])
-
-        modifications = []
-        response_text = input_data.text
-
-        # Add caveats based on confidence/completeness
-        completeness_score = input_data.metadata.completeness_score
-        confidence_score = input_data.metadata.confidence_score
-
-        if completeness_score < COMPLETENESS_THRESHOLD:
-            response_text = (
-                f"Based on the currently available information:\n\n{response_text}\n\n"
-                "Note: There may be additional resources available. "
-                "Would you like more specific information about any particular aspect?"
-            )
-            modifications.append("Added completeness caveat")
-
-        if confidence_score < CONFIDENCE_THRESHOLD:
-            response_text += (
-                "\n\nFor the most up-to-date and complete information, "
-                "we recommend contacting your local Red Cross office directly."
-            )
-            modifications.append("Added confidence caveat")
+            input_data = ResponseQualityInput(**state["initial_response"])
+    
+            modifications = []
+            response_text = input_data.text
+    
+            # Add caveats based on confidence/completeness
+            completeness_score = input_data.metadata.completeness_score
+            confidence_score = input_data.metadata.confidence_score
+    
+            if completeness_score < COMPLETENESS_THRESHOLD:
+                response_text = (
+                    f"Based on the currently available information:\n\n{response_text}\n\n"
+                    "Note: There may be additional resources available. "
+                    "Would you like more specific information about any particular aspect?"
+                )
+                modifications.append("Added completeness caveat")
+    
+            if confidence_score < CONFIDENCE_THRESHOLD:
+                response_text += (
+                    "\n\nFor the most up-to-date and complete information, "
+                    "we recommend contacting your local Red Cross office directly."
+                )
+                modifications.append("Added confidence caveat")
+        elif "web_agent_response" in state:
+            response_text = state["web_agent_response"]
+        else:
+            print("No initial_response or web_agent_response in state!")
 
         # Review alignment with RedCross tone using Claude
         try:

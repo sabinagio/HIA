@@ -192,7 +192,7 @@ def web_agent_node(state: dict):
     return Command(
         goto="response_quality",
         update={
-            "initial_response": web_agent_response
+            "web_agent_response": web_agent_response
         }
     )
 

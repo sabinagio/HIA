@@ -14,9 +14,27 @@ All answers are a result of the multi-agent solution we created.
 - Infrastructure Lean, [Leo Stahlschmidt](https://github.com/pizzadizza)
 - Operational Lead & Tech Support [Sabina Firtala](https://github.com/sabinagio)
 
+# Usage
+
+```bash
+# Clone repo
+git clone https://github.com/sabinagio/HIA
+
+# Set up src module
+pip install -e .
+
+# Initialize ChromaDB
+python src/utils/initialize_db.py
+
+# Run chatbot
+streamlit run streamlit_main.py
+```
+
+We also build a FastAPI version (`main.py`) which is more easily portable across different applications (e.g. Web, Telegram).
+
 # AI Solution
 We propose a multi-agent solution built using `langgraph`:
-![](img/agent_flow.png)
+![](img/agent_flow.jpg)
 
 ### Query Understanding Agent
 Pays attention to:
@@ -39,24 +57,12 @@ Pays attention to:
 # Deployment
 
 ## Online
-We built the following infrastructure to allow for easy update and deployment of Red Cross resources. 
+We built the following infrastructure to allow for easy update and deployment of Red Cross resources.
+
 
 ## Offline
 Another solution that wasn't implemented yet was to create a mobile app that can run the chatbot both offline and online, as it will not rely on an internet connection to offer useful information. 
 
-## Installation
-
-1. To use the `src` modules, make sure to run this command in your conda environment:
-```bash
-pip install -e .
-```
-
-2. To load and re-load `src` modules into Jupyter notebooks, use the following commands at the top of the notebook:
-```python
-%load_ext autoreload
-%autoreload 2
-```
-This will allow you to reload the Python scripts without restarting the Jupyter kernel.
 
 ## Tests
 

@@ -16,7 +16,7 @@ All answers are a result of the multi-agent solution we created.
 
 # AI Solution
 We propose a multi-agent solution built using `langgraph`:
-![](img/agent_convo_flow.png)
+![](img/agent_flow.png)
 
 ### Query Understanding Agent
 Pays attention to:
@@ -26,7 +26,7 @@ Pays attention to:
 
 ### RAG agent
 - It receives structured input from the query understanding agent.
-- Uses ChromaDB as the vector store with Red Cross internal database, slightly tweaked (under `data/` folder)
+- Uses ChromaDB as the vector store with Red Cross internal database, slightly tweaked (`data/Offers Clean.csv`)
 - Enhances the search query with metadata (e.g. information category & subcategory, location address, opening hours, last update time, source, etc.)
 - Calculates confidence and completeness scores based on search results
 
@@ -35,6 +35,14 @@ Pays attention to:
 
 ### Response Quality agent
 - Checks the response of the previous agents to see if it adheres to the guidelines provided by the Red Cross (`data/comms.json`)
+
+# Deployment
+
+## Online
+We built the following infrastructure to allow for easy update and deployment of Red Cross resources. 
+
+## Offline
+Another solution that wasn't implemented yet was to create a mobile app that can run the chatbot both offline and online, as it will not rely on an internet connection to offer useful information. 
 
 ## Installation
 
@@ -60,6 +68,9 @@ pytest tests/
 python -m pytest tests/test_query_understanding.py::test_clear_food_assistance_query -v
 python -m pytest tests/test_rage.py::test_rag_handles_different_languages -v
 ```
+
+# Project Presentation
+
 
 ## Pitch
 Hi everyone! We are the R-accoon Squared team and today we’ll be talking about HIA, the tool we've created to help people find the help they need, exactly when they need it. But before we talk about her, I want you to imagine this.

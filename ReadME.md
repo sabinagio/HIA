@@ -2,6 +2,7 @@
 The HIA virtual agent, or HIA, aims to make it easy, fast, and reliable to access information for people in vulnerable positions. It was created as an initial solution to Red Cross 510 team's challenge during the 48h Hackathon for Good.
 
 # Demo
+![](img/hifi_red_cross_categories.png) 
 
 Including interface design - [Emergency response example](https://www.youtube.com/shorts/R8XbCnvsnAU)
 
@@ -12,6 +13,28 @@ All answers are a result of the multi-agent solution we created.
 - Design Lead, [David Morales](https://www.linkedin.com/in/davidmdlr/)
 - Infrastructure Lean, [Leo Stahlschmidt](https://github.com/pizzadizza)
 - Operational Lead & Tech Support [Sabina Firtala](https://github.com/sabinagio)
+
+# AI Solution
+We propose a multi-agent solution built using `langgraph`:
+![](img/agent_convo_flow.png)
+
+### Query Understanding Agent
+Pays attention to:
+- initial language
+- conversation tone: urgent and non-urgent
+- query clarity. If a query is unclear, it will ask for clarification
+
+### RAG agent
+- It receives structured input from the query understanding agent.
+- Uses ChromaDB as the vector store with Red Cross internal database, slightly tweaked (under `data/` folder)
+- Enhances the search query with metadata (e.g. information category & subcategory, location address, opening hours, last update time, source, etc.)
+- Calculates confidence and completeness scores based on search results
+
+### Web agent
+- When the RAG agent doesn't retrieve any information, it searches for information from trusted sources from different categories (e.g. `refugeehelp.nl`) to still find a useful answer.
+
+### Response Quality agent
+- Checks the response of the previous agents to see if it adheres to the guidelines provided by the Red Cross (`data/comms.json`)
 
 ## Installation
 
@@ -26,29 +49,6 @@ pip install -e .
 %autoreload 2
 ```
 This will allow you to reload the Python scripts without restarting the Jupyter kernel.
-
-## Agents
-
-### Query Understanding Agent
-
-### RAG agent
-It receives structured **input from the query understanding agent** (rag_update => RAGInput)\
-**Uses Chroma** as the vector store with test data (can be replaced with production data) \
-**Enhances the search query with domain and entity information** (for the domain that's even more helpful if we cluster
-topics and add a topic tag to the metadata of the Vector DB - and then we use this topic list to ask the
-query understanding agent to classify input) \
-**Calculates confidence and completeness scores** based on search results
-
-Generates a response that includes:
-
-- The actual response text
-- Metadata about sources and freshness
-- Contact information where available
-- Confidence and completeness scores
-
-Routes the **output to the response quality agent**
-
-## Utils & Schemas
 
 ## Tests
 

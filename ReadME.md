@@ -89,7 +89,7 @@ python -m pytest tests/test_rage.py::test_rag_handles_different_languages -v
 
 # Project Presentation
 
-<iframe style="border: 1px solid rgba(0, 0, 0, 0.1);" width="800" height="450" src="https://embed.figma.com/slides/rsCpBYDuUH4h83Ec7njPii/HFG-25---HIA?node-id=1-320&embed-host=share" allowfullscreen></iframe>
+Can be found [here](https://embed.figma.com/slides/rsCpBYDuUH4h83Ec7njPii/HFG-25---HIA?node-id=1-320&embed-host=share)!
 
 ## Pitch
 Hi everyone! We are the R-accoon Squared team and today we’ll be talking about HIA, the tool we've created to help people find the help they need, exactly when they need it. But before we talk about her, I want you to imagine this.

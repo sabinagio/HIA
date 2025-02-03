@@ -4,11 +4,13 @@ The HIA virtual agent, or HIA, aims to make it easy, fast, and reliable to acces
 # Demo
 ![](img/hifi_red_cross_categories.png) ![](img/hifi_convo_flow.png)
 
-Including interface design - [Emergency response example](https://www.youtube.com/shorts/R8XbCnvsnAU)
+Including interface design - [Emergency response example](https://www.youtube.com/shorts/R8XbCnvsnAU)   
 Excluding interface design:
 * Food and shelter help:  
+ 
 ![](img/streamlit_food_and_shelter.jpg)
 * Domestic violence help:  
+
 ![](img/streamlit_domestic_violence.jpg)
 
 All answers are a result of the multi-agent solution we created.
@@ -72,6 +74,7 @@ We built the following infrastructure to allow for easy update and deployment of
 ## Offline
 Another solution that wasn't implemented yet was to create a mobile app that can run the chatbot both offline and online, as it will not rely on an internet connection to offer useful information. 
 
+# Development
 
 ## Tests
 
@@ -86,8 +89,7 @@ python -m pytest tests/test_rage.py::test_rag_handles_different_languages -v
 
 # Project Presentation
 
-<html>
-<iframe style="border: 1px solid rgba(0, 0, 0, 0.1);" width="800" height="450" src="https://embed.figma.com/slides/rsCpBYDuUH4h83Ec7njPii/HFG-25---HIA?node-id=1-320&embed-host=share" allowfullscreen></iframe></html>
+<iframe style="border: 1px solid rgba(0, 0, 0, 0.1);" width="800" height="450" src="https://embed.figma.com/slides/rsCpBYDuUH4h83Ec7njPii/HFG-25---HIA?node-id=1-320&embed-host=share" allowfullscreen></iframe>
 
 ## Pitch
 Hi everyone! We are the R-accoon Squared team and today we’ll be talking about HIA, the tool we've created to help people find the help they need, exactly when they need it. But before we talk about her, I want you to imagine this.

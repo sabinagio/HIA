@@ -2,9 +2,14 @@
 The HIA virtual agent, or HIA, aims to make it easy, fast, and reliable to access information for people in vulnerable positions. It was created as an initial solution to Red Cross 510 team's challenge during the 48h Hackathon for Good.
 
 # Demo
-![](img/hifi_red_cross_categories.png) 
+![](img/hifi_red_cross_categories.png) ![](img/hifi_convo_flow.png)
 
 Including interface design - [Emergency response example](https://www.youtube.com/shorts/R8XbCnvsnAU)
+Excluding interface design:
+    - Food and shelter help:  
+    ![](img/streamlit_food_and_shelter.jpg)
+    - Domestic violence help:
+    ![](img/streamlit_domestic_violence.jpg)
 
 All answers are a result of the multi-agent solution we created.
 
@@ -15,6 +20,7 @@ All answers are a result of the multi-agent solution we created.
 - Operational Lead & Tech Support [Sabina Firtala](https://github.com/sabinagio)
 
 # Usage
+To fully run the code from this repo you need an API key to a LLM API of your choice, as well as a database of aid resources. 
 
 ```bash
 # Clone repo
@@ -56,9 +62,12 @@ Pays attention to:
 
 # Deployment
 
-## Online
-We built the following infrastructure to allow for easy update and deployment of Red Cross resources.
+## Local - POC
+We built a prototype in Streamlit that you can run locally using this repo.
 
+## Online
+We built the following infrastructure to allow for easy update and deployment of Red Cross resources:
+![](img/aws_architecture.png)
 
 ## Offline
 Another solution that wasn't implemented yet was to create a mobile app that can run the chatbot both offline and online, as it will not rely on an internet connection to offer useful information. 

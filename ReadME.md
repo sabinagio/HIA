@@ -6,10 +6,10 @@ The HIA virtual agent, or HIA, aims to make it easy, fast, and reliable to acces
 
 Including interface design - [Emergency response example](https://www.youtube.com/shorts/R8XbCnvsnAU)
 Excluding interface design:
-    - Food and shelter help:  
-    ![](img/streamlit_food_and_shelter.jpg)
-    - Domestic violence help:
-    ![](img/streamlit_domestic_violence.jpg)
+* Food and shelter help:  
+![](img/streamlit_food_and_shelter.jpg)
+* Domestic violence help:  
+![](img/streamlit_domestic_violence.jpg)
 
 All answers are a result of the multi-agent solution we created.
 

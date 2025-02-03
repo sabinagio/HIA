@@ -31,6 +31,9 @@ git clone https://github.com/sabinagio/HIA
 # Set up src module
 pip install -e .
 
+# Install requirements
+pip install -r requirements.txt
+
 # Initialize ChromaDB
 python src/utils/initialize_db.py
 

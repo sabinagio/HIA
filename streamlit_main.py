@@ -193,7 +193,7 @@ def chat(chat_input: ChatInput) -> ChatResponse:
         if "final_response" in result:
             if result['final_response']:
                 response_text = result["final_response"]["text"]
-            elif result["web_agent_response"]:
+            elif "web_agent_response" in result:
                 response_text = result["web_agent_response"]["web_agent_response"]
             else:
                 # For emergency/clarification flows

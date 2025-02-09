@@ -11,7 +11,11 @@ The HIA virtual agent, or HIA, aims to make it easy, fast, and reliable to acces
 ![](img/streamlit_food_and_shelter.jpg)
 * Domestic violence help:  
 
-![](img/streamlit_domestic_violence.jpg)
+![](img/complex_qs/domestic_violence.png)
+
+* Asylum help:  
+
+![](img/complex_qs/asylum_process.png)
 
 All answers are a result of the multi-agent solution we created.
 
@@ -65,6 +69,11 @@ Pays attention to:
 ### Response Quality agent
 (currently removed as it removed relevant information from previous responses, needs to be used as an add-on)
 - Checks the response of the previous agents to see if it adheres to the guidelines provided by the Red Cross (`data/comms.json`)
+
+# Limitations
+Due to time constraints during the hackathon, the following items were not addressed:
+- Incorporating previous questions and answers into the next response, i.e. continuity
+- Fixing the response quality node to not alter previous response nodes.
 
 # Deployment
 

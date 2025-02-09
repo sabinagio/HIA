@@ -72,8 +72,9 @@ Pays attention to:
 
 # Limitations
 Due to time constraints during the hackathon, the following items were not addressed:
-- Incorporating previous questions and answers into the next response, i.e. continuity
+- Incorporating previous questions and answers into the next response, i.e. continuity.
 - Fixing the response quality node to not alter previous response nodes.
+- Addressing all the complex question examples as outlined by the Red Cross.
 
 # Deployment
 

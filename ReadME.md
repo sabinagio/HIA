@@ -63,6 +63,7 @@ Pays attention to:
 - When the RAG agent doesn't retrieve any information, it searches for information from trusted sources from different categories (e.g. `refugeehelp.nl`) to still find a useful answer.
 
 ### Response Quality agent
+(currently removed as it removed relevant information from previous responses, needs to be used as an add-on)
 - Checks the response of the previous agents to see if it adheres to the guidelines provided by the Red Cross (`data/comms.json`)
 
 # Deployment

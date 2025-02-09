@@ -54,7 +54,7 @@ def build_conversation_graph():
     workflow.add_node("query_understanding", query_understanding.query_understanding_node)
     workflow.add_node("rag", rag.rag_node)
     workflow.add_node("web_agent", web_agent.web_agent_node)
-    workflow.add_node("response_quality", response_quality.response_quality_node)
+    # workflow.add_node("response_quality", response_quality.response_quality_node)
 
     # Add simple routing nodes
     def await_clarification_node(state):
@@ -115,7 +115,9 @@ def build_conversation_graph():
         if context:
             return "web_agent"
         else:
-            return "response_quality"
+            return "end"
+        # else:
+        #     return "response_quality"
 
     # Add edges
     workflow.add_edge(START, "query_understanding")
@@ -134,7 +136,7 @@ def build_conversation_graph():
         "rag",
         route_by_relevant_chunks,
         {
-            "response_quality": "response_quality",
+            "end": END,
             "web_agent": "web_agent"
         }
     )
@@ -148,7 +150,8 @@ def build_conversation_graph():
     # All other nodes go to END - our multiple endings
     workflow.add_edge("emergency", END)
     workflow.add_edge("await_clarification", END)
-    workflow.add_edge("response_quality", END)
+    workflow.add_edge("rag", END)
+    workflow.add_edge("web_agent", END)
 
     return workflow.compile()
 
@@ -190,6 +193,8 @@ def chat(chat_input: ChatInput) -> ChatResponse:
         if "final_response" in result:
             if result['final_response']:
                 response_text = result["final_response"]["text"]
+            elif result["web_agent_response"]:
+                response_text = result["web_agent_response"]["web_agent_response"]
             else:
                 # For emergency/clarification flows
                 response_text = result["messages"][-1].content

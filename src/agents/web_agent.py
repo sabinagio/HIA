@@ -6,6 +6,7 @@ from langchain_community.tools import DuckDuckGoSearchResults
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from langchain_anthropic import ChatAnthropic
 from langgraph.types import Command
+from langgraph.graph import END
 import time
 
 load_dotenv()
@@ -190,7 +191,7 @@ def web_agent_node(state: dict):
     web_agent_response = search_summary(query_context, search_result)
     print(web_agent_response)
     return Command(
-        goto="response_quality",
+        goto=END,
         update={
             "web_agent_response": web_agent_response
         }
